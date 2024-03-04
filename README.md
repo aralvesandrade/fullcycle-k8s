@@ -151,3 +151,53 @@ kubectl apply -f k8s/configmap-family.yaml
 #aplicar alterações feitas no arquivo deployment.yaml
 kubectl apply -f k8s/deployment.yaml
 ```
+
+Existem três tipos principais de `probes` que podem ser definidas dentro de um pod:
+
+- livenessProbe: Esta probe é usada para determinar se o contêiner dentro do pod está em um estado saudável. Se o contêiner falhar nesta verificação, o Kubernetes considera o contêiner não saudável e pode reiniciá-lo.
+
+- readinessProbe: Esta probe é usada para determinar se o contêiner dentro do pod está pronto para servir o tráfego. Se um contêiner falhar nesta verificação, ele é removido do balanceador de carga do Kubernetes, impedindo que o tráfego seja direcionado para ele até que ele se torne pronto novamente.
+
+- startupProbe: Esta probe é usada para determinar se o contêiner dentro do pod está iniciando corretamente. Ela difere da livenessProbe porque é usado apenas durante a inicialização do contêiner. Uma vez que o contêiner está em execução, a startupProbe é desabilitada.
+
+Aplicar vários arquivos `yaml`
+
+```
+kubectl apply -f k8s/configmap-env.yaml -f k8s/secret.yaml -f k8s/configmap-family.yaml -f k8s/service.yaml -f k8s/deployment.yaml -f k8s/metrics-server.yaml -f k8s/hpa.yaml && watch -n1 kubectl get pods
+kubectl get services
+kubectl port-forward svc/goserver-service 8000:80
+```
+
+Resources e HPA
+
+Instalando metrics-server, fazer download do arquivo yaml no site https://github.com/kubernetes-sigs/metrics-server, e renomear o arquivo para metrics-server.yaml
+
+```
+wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+Alterar o arquivo no kind: Deployment, inserir o argumento `--kubelet-insecure-tls`, e com a linha de comando `kubectl apply -f k8s/metrics-server.yaml`, será instalado o metrics-server
+
+```
+kubectl apply -f k8s/deployment.yaml -f k8s/metrics-server.yaml
+#validar se foi aplicado e instalado o metrics-server
+kubectl get apiservices
+#verificar as metricas de um pod
+kubectl top pod goserver-6ddb7c476-gs2w4
+```
+
+Aplicar HPA
+
+```
+kubectl apply -f k8s/hpa.yaml
+#verificar o hpa foi referenciado no Deployment/goserver
+kubectl get hpa
+#ou
+watch -n1 kubectl get hpa
+```
+
+Aplicando um stress test na aplicar
+
+```
+kubectl run -it fortio --rm --image=fortio/fortio -- load -qps 800 -t 120s -c 70 "http://goserver-service/healthz"
+```
